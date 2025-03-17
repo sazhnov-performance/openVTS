@@ -3,6 +3,7 @@ package com.sazhnov.performance.openVTS.redis;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
@@ -16,18 +17,17 @@ import static org.assertj.core.api.Assertions.assertThat;
 @SpringBootTest
 class RedisServiceTest {
 
-    private RedisConnectionFactory redisConnectionFactory;
+
+    @Autowired
+    private RedisConnectionFactory redisConnectionFactory; // Use Spring's managed RedisConnectionFactory
     private RedisTemplate redisTemplate;
 
     private RedisService redisService;
 
     @BeforeEach
     void setUp() {
-        // Connect to real Redis running at localhost:6379
-        RedisConnectionFactory connectionFactory = new LettuceConnectionFactory("localhost", 6379);
-        ((LettuceConnectionFactory) connectionFactory).afterPropertiesSet();
         redisTemplate = new RedisTemplate();
-        redisTemplate.setConnectionFactory(connectionFactory);
+        redisTemplate.setConnectionFactory(redisConnectionFactory);
         redisService = new RedisService(redisConnectionFactory);
     }
 
