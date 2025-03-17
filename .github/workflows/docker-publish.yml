@@ -56,4 +56,5 @@ jobs:
           context: .
           push: true
           tags: sazhnovperformance/openvts:latest
+
           
