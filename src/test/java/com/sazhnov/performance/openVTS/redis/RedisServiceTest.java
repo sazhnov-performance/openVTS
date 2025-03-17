@@ -5,6 +5,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.*;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.core.*;
 
 import java.util.*;
@@ -28,7 +30,6 @@ class RedisServiceTest {
     @Mock
     private ListOperations<String, Object> listOperations;
 
-    @InjectMocks
     private RedisService redisService;
 
     @BeforeEach
@@ -36,6 +37,8 @@ class RedisServiceTest {
         Mockito.<HashOperations<String, String, List<String>>>when(redisTemplate.opsForHash()).thenReturn(hashOperations);
         Mockito.when(redisTemplate.opsForSet()).thenReturn(setOperations);
         Mockito.when(redisTemplate.opsForList()).thenReturn(listOperations);
+
+        redisService = new RedisService((RedisConnectionFactory) redisTemplate);
     }
 
     @Test
