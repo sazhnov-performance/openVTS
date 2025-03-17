@@ -1,4 +1,4 @@
-package com.sazhnov_performance.openVTS;
+package com.sazhnov.performance.openVTS;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;

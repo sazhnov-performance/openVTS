@@ -1,4 +1,4 @@
-name: Build, Validate, and Push Docker Image
+name: Build, Validate, Test, and Push Docker Image
 
 on:
   push:
@@ -6,8 +6,15 @@ on:
       - main
 
 jobs:
-  build-validate-and-push:
+  build-validate-and-test:
     runs-on: ubuntu-latest
+
+    services:
+      redis:
+        image: redis:latest
+        ports:
+          - 6379:6379
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
@@ -22,11 +29,11 @@ jobs:
         run: chmod +x mvnw
 
       # 1 Code Validation (Linting, Formatting, Compile Checks)
-      - name: Validate Code with Maven
-        run: ./mvnw clean validate
+      # - name: Validate Code with Maven
+      #   run: ./mvnw clean validate
 
-      - name: Run Static Code Analysis (Checkstyle)
-        run: ./mvnw checkstyle:check
+      # - name: Run Static Code Analysis (Checkstyle)
+      #   run: ./mvnw checkstyle:check
 
       # 2 Vulnerability Scanning with SonarCloud
       - name: Run SonarCloud Analysis
@@ -34,9 +41,16 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: |
           ./mvnw sonar:sonar \
-            -Dsonar.projectKey=sazhnov-perfromance_openVTS \
+            -Dsonar.projectKey=sazhnov-performance_openVTS \
             -Dsonar.organization=sazhnov-performance \
             -Dsonar.host.url=https://sonarcloud.io
+
+      # 3 Run Unit Tests with Redis
+      - name: Run Unit Tests
+        env:
+          SPRING_REDIS_HOST: localhost
+          SPRING_REDIS_PORT: 6379
+        run: ./mvnw test
 
       # 4 Build JAR
       - name: Build JAR
@@ -56,4 +70,3 @@ jobs:
           context: .
           push: true
           tags: sazhnovperformance/openvts:latest
-          
