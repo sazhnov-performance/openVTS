@@ -17,7 +17,11 @@ public class RedisController {
 
     @PostMapping("/table/create")
     public ResponseEntity<Map<String, String>> createTable(@RequestParam String tableName, @RequestBody List<String> columns) {
-        redisService.createTable(tableName, columns);
+        try {
+            redisService.createTable(tableName, columns);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
         return ResponseEntity.ok(Collections.singletonMap("message", "Table " + tableName + " created."));
     }
 
@@ -44,7 +48,7 @@ public class RedisController {
 
     @GetMapping("/table/getLatestRowAndDelete")
     public ResponseEntity<Map<String, Object>> getLatestRowAndDelete(@RequestParam String tableName) {
-        List<Object> row = redisService.getLatestRowAndDelete(tableName);
+        List<Object> row = redisService.popRow(tableName);
         if (row == null) {
             return ResponseEntity.ok(Collections.singletonMap("message", "No data found."));
         }

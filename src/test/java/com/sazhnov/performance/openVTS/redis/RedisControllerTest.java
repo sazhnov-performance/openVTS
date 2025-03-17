@@ -10,6 +10,7 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -18,6 +19,7 @@ import java.util.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
+@ActiveProfiles("test")
 @ExtendWith(SpringExtension.class)
 @WebMvcTest(RedisController.class)
 class RedisControllerTest {
@@ -84,7 +86,7 @@ class RedisControllerTest {
     @Test
     void testGetLatestRowAndDelete() throws Exception {
         List<Object> mockRow = List.of("Alice", 25);
-        Mockito.when(redisService.getLatestRowAndDelete("testTable")).thenReturn(mockRow);
+        Mockito.when(redisService.popRow("testTable")).thenReturn(mockRow);
 
         mockMvc.perform(get("/api/redis/table/getLatestRowAndDelete")
                         .param("tableName", "testTable"))
