@@ -28,6 +28,9 @@ jobs:
       - name: Run Static Code Analysis (Checkstyle)
         run: ./mvnw checkstyle:check
 
+      - name: Compile Code with Maven
+        run: ./mvnw clean compile
+
       # 2 Vulnerability Scanning with SonarCloud
       - name: Run SonarCloud Analysis
         env:
