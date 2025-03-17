@@ -50,10 +50,7 @@ jobs:
 
       # 3 Run Unit Tests with Redis
       - name: Run Unit Tests
-        env:
-          SPRING_REDIS_HOST: localhost
-          SPRING_REDIS_PORT: 6379
-        run: ./mvnw test
+        run: ./mvnw test -Dspring.profiles.active=test
 
       # 4 Build JAR
       - name: Build JAR
