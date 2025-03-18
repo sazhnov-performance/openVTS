@@ -1,0 +1,94 @@
+<div id="table-container" class="position-relative">
+    <!-- Header: Table Name Left, Gear Icon Right -->
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2 th:text="${tableName}" class="mb-0"></h2>
+
+        <div class="dropdown">
+            <button class="btn btn-light dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                <i class="bi bi-gear"></i>
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end">
+                <li><a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#flushModal">Flush</a></li>
+                <li><a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#deleteModal">Delete</a></li>
+                <li><a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#uploadModal">Upload CSV</a></li>
+            </ul>
+
+        </div>
+    </div>
+
+    <table class="table table-bordered mt-3">
+        <thead>
+        <tr>
+            <th th:each="col : ${columns}" th:text="${col}"></th>
+        </tr>
+        </thead>
+        <tbody id="table-rows">
+        </tbody>
+    </table>
+
+    <div th:attr="hx-get=@{/table/{tableName}/rows(tableName=${tableName}, page=${nextPage})},
+                   hx-target='#table-rows',
+                   hx-swap='beforeend'"
+         hx-trigger="revealed">
+    </div>
+
+
+
+</div>
+<div class="modal fade" id="flushModal" tabindex="-1" aria-labelledby="flushModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <form th:attr="hx-post=@{/table/{tableName}/flush(tableName=${tableName})}" hx-target="#flush-status" hx-swap="innerHTML" class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirm Flush</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                Are you sure you want to flush the table <strong th:text="${tableName}"></strong>?
+            </div>
+            <div class="modal-footer">
+                <button type="submit" class="btn btn-warning">Yes, Flush</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            </div>
+            <div id="flush-status" class="mt-2"></div>
+        </form>
+    </div>
+</div>
+
+
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <form th:attr="hx-post=@{/table/{tableName}/delete(tableName=${tableName})}"  hx-target="#delete-status" hx-swap="innerHTML" class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirm Delete</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                Are you sure you want to delete the table <strong th:text="${tableName}"></strong>?
+            </div>
+            <div class="modal-footer">
+                <button type="submit" class="btn btn-danger">Yes, Delete</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            </div>
+            <div id="delete-status" class="mt-2"></div>
+        </form>
+    </div>
+</div>
+<div class="modal fade" id="uploadModal" tabindex="-1" aria-labelledby="uploadModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <form hx-post="/table/append" hx-target="#append-status" hx-swap="innerHTML"  enctype="multipart/form-data" class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Upload CSV</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="text" name="tableName" th:value="${tableName}" readonly class="form-control mb-3">
+                <input type="file" name="file" class="form-control mb-3" required>
+            </div>
+            <div class="modal-footer">
+                <button type="submit" class="btn btn-primary">Upload</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+            <div id="append-status" class="mt-2"></div>
+        </form>
+    </div>
+</div>

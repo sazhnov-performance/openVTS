@@ -10,6 +10,6 @@ import org.springframework.context.annotation.Configuration;
 @Setter
 @Configuration
 public class OpenVTSConfiguration {
-    @Value("${openvts.table}")
+    @Value("${openvts.sso.enabled}")
     private String table;
 }

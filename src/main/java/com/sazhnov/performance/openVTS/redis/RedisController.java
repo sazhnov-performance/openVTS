@@ -9,7 +9,7 @@ import java.io.InputStreamReader;
 import java.util.*;
 
 @RestController
-@RequestMapping("/api/redis")
+@RequestMapping("/api/v1")
 @RequiredArgsConstructor
 public class RedisController {
 
@@ -31,37 +31,83 @@ public class RedisController {
         return ResponseEntity.ok(Collections.singletonMap("message", "Table " + tableName + " deleted."));
     }
 
-    @PostMapping("/table/addRow")
+    @PostMapping("/table/row/add")
     public ResponseEntity<Map<String, String>> addRow(@RequestParam String tableName, @RequestBody List<Object> values) {
         redisService.addRow(tableName, values);
         return ResponseEntity.ok(Collections.singletonMap("message", "Row added to " + tableName));
     }
 
-    @GetMapping("/table/getRandomRow")
+    @GetMapping("/table/row/read")
     public ResponseEntity<Map<String, Object>> getRandomRow(@RequestParam String tableName) {
+        List<Object> columns = redisService.getColumns(tableName);
         List<Object> row = redisService.getRandomRow(tableName);
+
+        if (columns == null || row == null) {
+            return ResponseEntity.ok(Collections.singletonMap("message", "No data found."));
+        }
+
+        Map<String, Object> response = new HashMap<>();
+        for (int i = 0; i < columns.size() && i < row.size(); i++) {
+            response.put(columns.get(i).toString(), row.get(i));
+        }
+        return ResponseEntity.ok(response);
+    }
+
+
+    @GetMapping("/table/columns/get")
+    public ResponseEntity<Map<String, Object>> getColumns(@RequestParam String tableName) {
+        List<Object> row = redisService.getColumns(tableName);
         if (row == null) {
             return ResponseEntity.ok(Collections.singletonMap("message", "No data found."));
         }
         return ResponseEntity.ok(Collections.singletonMap("data", row));
     }
 
-    @GetMapping("/table/getLatestRowAndDelete")
-    public ResponseEntity<Map<String, Object>> getLatestRowAndDelete(@RequestParam String tableName) {
+    @GetMapping("/table/row/extract")
+    public ResponseEntity<Map<String, Object>> getLatestRowWithColumns(@RequestParam String tableName) {
+        List<Object> columns = redisService.getColumns(tableName);
         List<Object> row = redisService.popRow(tableName);
-        if (row == null) {
+
+        if (columns == null || row == null) {
             return ResponseEntity.ok(Collections.singletonMap("message", "No data found."));
         }
-        return ResponseEntity.ok(Collections.singletonMap("data", row));
+
+        Map<String, Object> response = new HashMap<>();
+        for (int i = 0; i < columns.size() && i < row.size(); i++) {
+            response.put(columns.get(i).toString(), row.get(i));
+        }
+
+        return ResponseEntity.ok(response);
     }
 
-    @GetMapping("/tables/rowCounts")
+    @GetMapping("/table/summary")
     public ResponseEntity<Map<String, Object>> getTablesWithRowCounts() {
         Map<String, Integer> rowCounts = redisService.getTablesWithRowCounts();
         return ResponseEntity.ok(Collections.singletonMap("tables", rowCounts));
     }
 
-    @PostMapping("/table/uploadCSV")
+    @GetMapping("/table/row/paginate")
+    public ResponseEntity<List<Map<String, Object>>> getRowsWithPagination(@RequestParam String tableName, @RequestParam int page, @RequestParam int size) {
+        List<Object> columns = redisService.getColumns(tableName);
+        List<List<Object>> rows = redisService.getRowsWithPagination(tableName, page, size);
+
+        if (columns == null || rows.isEmpty()) {
+            return ResponseEntity.ok(Collections.emptyList());
+        }
+
+        List<Map<String, Object>> responseList = new ArrayList<>();
+        for (List<Object> row : rows) {
+            Map<String, Object> rowMap = new HashMap<>();
+            for (int i = 0; i < columns.size() && i < row.size(); i++) {
+                rowMap.put(columns.get(i).toString(), row.get(i));
+            }
+            responseList.add(rowMap);
+        }
+
+        return ResponseEntity.ok(responseList);
+    }
+
+    @PostMapping("/table/upload")
     public ResponseEntity<Map<String, String>> uploadCsv(@RequestParam String tableName, @RequestParam("file") MultipartFile file) {
         try {
             if (file.isEmpty()) {
@@ -91,4 +137,21 @@ public class RedisController {
             return ResponseEntity.internalServerError().body(Collections.singletonMap("error", "Error processing CSV file: " + e.getMessage()));
         }
     }
+
+    @GetMapping("/table/row/cycle")
+    public ResponseEntity<Map<String, Object>> cycleRow(@RequestParam String tableName) {
+        List<Object> columns = redisService.getColumns(tableName);
+        List<Object> row = redisService.cycleRow(tableName);
+
+        if (columns == null || row == null) {
+            return ResponseEntity.ok(Collections.singletonMap("message", "No data found."));
+        }
+
+        Map<String, Object> response = new HashMap<>();
+        for (int i = 0; i < columns.size() && i < row.size(); i++) {
+            response.put(columns.get(i).toString(), row.get(i));
+        }
+        return ResponseEntity.ok(response);
+    }
+
 }

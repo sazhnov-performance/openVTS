@@ -89,4 +89,25 @@ class RedisServiceTest {
         assertThat(tableCounts).containsEntry(table1, 2);
         assertThat(tableCounts).containsEntry(table2, 1);
     }
+
+    @Test
+    void testGetRowsWithPagination() {
+        String tableName = "users";
+        redisService.createTable(tableName, List.of("id", "name"));
+        redisService.addRow(tableName, List.of(1, "Alice"));
+        redisService.addRow(tableName, List.of(2, "Bob"));
+        redisService.addRow(tableName, List.of(3, "Charlie"));
+        redisService.addRow(tableName, List.of(4, "David"));
+
+        List<List<Object>> page1 = redisService.getRowsWithPagination(tableName, 1, 2);
+        List<List<Object>> page2 = redisService.getRowsWithPagination(tableName, 2, 2);
+
+        assertThat(page1).hasSize(2);
+        assertThat(page1.get(0)).containsExactly(1, "Alice");
+        assertThat(page1.get(1)).containsExactly(2, "Bob");
+
+        assertThat(page2).hasSize(2);
+        assertThat(page2.get(0)).containsExactly(3, "Charlie");
+        assertThat(page2.get(1)).containsExactly(4, "David");
+    }
 }

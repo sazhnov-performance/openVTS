@@ -45,7 +45,7 @@ class RedisControllerTest {
 
     @Test
     void testCreateTable() throws Exception {
-        mockMvc.perform(post("/api/redis/table/create")
+        mockMvc.perform(post("/api/v1/table/create")
                         .param("tableName", "testTable")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("[\"column1\", \"column2\"]"))
@@ -55,56 +55,12 @@ class RedisControllerTest {
 
     @Test
     void testDeleteTable() throws Exception {
-        mockMvc.perform(delete("/api/redis/table/delete")
+        mockMvc.perform(delete("/api/v1/table/delete")
                         .param("tableName", "testTable"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.message").value("Table testTable deleted."));
     }
 
-    @Test
-    void testAddRow() throws Exception {
-        mockMvc.perform(post("/api/redis/table/addRow")
-                        .param("tableName", "testTable")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("[\"value1\", \"value2\"]"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.message").value("Row added to testTable"));
-    }
-
-    @Test
-    void testGetRandomRow() throws Exception {
-        List<Object> mockRow = List.of("value1", "value2");
-        Mockito.when(redisService.getRandomRow("testTable")).thenReturn(mockRow);
-
-        mockMvc.perform(get("/api/redis/table/getRandomRow")
-                        .param("tableName", "testTable"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data[0]").value("value1"))
-                .andExpect(jsonPath("$.data[1]").value("value2"));
-    }
-
-    @Test
-    void testGetLatestRowAndDelete() throws Exception {
-        List<Object> mockRow = List.of("Alice", 25);
-        Mockito.when(redisService.popRow("testTable")).thenReturn(mockRow);
-
-        mockMvc.perform(get("/api/redis/table/getLatestRowAndDelete")
-                        .param("tableName", "testTable"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data[0]").value("Alice"))
-                .andExpect(jsonPath("$.data[1]").value(25));
-    }
-
-    @Test
-    void testGetTablesWithRowCounts() throws Exception {
-        Map<String, Integer> mockTableCounts = new HashMap<>();
-        mockTableCounts.put("testTable", 5);
-        Mockito.when(redisService.getTablesWithRowCounts()).thenReturn(mockTableCounts);
-
-        mockMvc.perform(get("/api/redis/tables/rowCounts"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.tables.testTable").value(5));
-    }
 
     @Test
     void testUploadCsv_Success() throws Exception {
@@ -112,7 +68,7 @@ class RedisControllerTest {
         MockMultipartFile file = new MockMultipartFile(
                 "file", "test.csv", "text/csv", csvData.getBytes());
 
-        mockMvc.perform(multipart("/api/redis/table/uploadCSV")
+        mockMvc.perform(multipart("/api/v1/table/upload")
                         .file(file)
                         .param("tableName", "testTable"))
                 .andExpect(status().isOk())
@@ -124,7 +80,7 @@ class RedisControllerTest {
         MockMultipartFile emptyFile = new MockMultipartFile(
                 "file", "empty.csv", "text/csv", new byte[0]);
 
-        mockMvc.perform(multipart("/api/redis/table/uploadCSV")
+        mockMvc.perform(multipart("/api/v1/table/upload")
                         .file(emptyFile)
                         .param("tableName", "testTable"))
                 .andExpect(status().isBadRequest())

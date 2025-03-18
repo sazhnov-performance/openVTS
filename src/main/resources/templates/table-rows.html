@@ -1,0 +1,16 @@
+<tr th:each="row, iterStat : ${rows}">
+    <!-- This cell will only appear in the last row -->
+    <td style="display: none;" th:if="${iterStat.last and !isLastPage}"
+        class="collapsed-col">
+        <button id="loadMoreBtn"
+                th:attr="hx-get=@{/table/{tableName}/rows(tableName=${tableName}, page=${nextPage})},
+             hx-target='#table-rows',
+             hx-swap='beforeend'"
+                style="display: none;">
+        </button>
+    </td>
+
+    <td th:each="cell : ${row}" th:text="${cell}"></td>
+
+
+</tr>
