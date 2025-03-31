@@ -175,7 +175,20 @@
                     GET /api/v1/table/summary
                 </div>
                 <div class="response-box mt-2">
-                    {"tables": {"my_table": 5}}
+                    {
+                    "tables": [
+                    {
+                    "table": "users",
+                    "rowCount": 10,
+                    "columns": ["id", "name", "email"]
+                    },
+                    {
+                    "table": "orders",
+                    "rowCount": 5,
+                    "columns": ["orderId", "userId", "total"]
+                    }
+                    ]
+                    }
                 </div>
             </div>
         </div>

@@ -81,10 +81,27 @@ public class RedisController {
     }
 
     @GetMapping("/table/summary")
-    public ResponseEntity<Map<String, Object>> getTablesWithRowCounts() {
+    public ResponseEntity<Map<String, Object>> getTablesWithRowCountsAndColumns() {
         Map<String, Integer> rowCounts = redisService.getTablesWithRowCounts();
-        return ResponseEntity.ok(Collections.singletonMap("tables", rowCounts));
+
+        List<Map<String, Object>> tableSummaries = new ArrayList<>();
+
+        for (Map.Entry<String, Integer> entry : rowCounts.entrySet()) {
+            String tableName = entry.getKey();
+            Integer rowCount = entry.getValue();
+            List<Object> columns = redisService.getColumns(tableName);
+
+            Map<String, Object> tableInfo = new HashMap<>();
+            tableInfo.put("table", tableName);
+            tableInfo.put("rowCount", rowCount);
+            tableInfo.put("columns", columns);
+
+            tableSummaries.add(tableInfo);
+        }
+
+        return ResponseEntity.ok(Collections.singletonMap("tables", tableSummaries));
     }
+
 
     @GetMapping("/table/row/paginate")
     public ResponseEntity<List<Map<String, Object>>> getRowsWithPagination(@RequestParam String tableName, @RequestParam int page, @RequestParam int size) {
