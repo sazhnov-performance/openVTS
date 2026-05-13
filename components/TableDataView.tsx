@@ -7,6 +7,12 @@ import { DeleteModal } from "./DeleteModal";
 import { AppendModal } from "./AppendModal";
 
 type RowRecord = Record<string, unknown>;
+type IncompleteRowDiagnostic = {
+  uploadSetId: string;
+  rowIndex: number;
+  missingColumns: string[];
+  row: Record<string, string | number | boolean | null>;
+};
 
 export function TableDataView({ tableName }: { tableName: string }) {
   const router = useRouter();
@@ -16,6 +22,7 @@ export function TableDataView({ tableName }: { tableName: string }) {
   const [loadingMore, setLoadingMore] = useState(false);
   const [nextPage, setNextPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
+  const [incompleteRows, setIncompleteRows] = useState<IncompleteRowDiagnostic[]>([]);
   const [menuOpen, setMenuOpen] = useState(false);
   const [flushOpen, setFlushOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -46,15 +53,24 @@ export function TableDataView({ tableName }: { tableName: string }) {
     [tableName]
   );
 
+  const loadIncompleteRows = useCallback(async () => {
+    const res = await fetch("/api/v1/table/summary");
+    const data = await res.json();
+    const tableSummary = (data.tables ?? []).find(
+      (t: { table: string }) => t.table === tableName
+    );
+    setIncompleteRows(tableSummary?.incompleteRows ?? []);
+  }, [tableName]);
+
   useEffect(() => {
     setLoading(true);
     setRows([]);
     setNextPage(1);
     setHasMore(true);
-    Promise.all([loadColumns(), loadPage(1, false)]).finally(() =>
+    Promise.all([loadColumns(), loadPage(1, false), loadIncompleteRows()]).finally(() =>
       setLoading(false)
     );
-  }, [tableName, loadColumns, loadPage]);
+  }, [tableName, loadColumns, loadPage, loadIncompleteRows]);
 
   const loadMore = useCallback(() => {
     if (loadingMore || !hasMore) return;
@@ -77,11 +93,12 @@ export function TableDataView({ tableName }: { tableName: string }) {
 
   const refresh = useCallback(() => {
     loadColumns();
+    loadIncompleteRows();
     setRows([]);
     setNextPage(1);
     setHasMore(true);
     loadPage(1, false);
-  }, [loadColumns, loadPage]);
+  }, [loadColumns, loadPage, loadIncompleteRows]);
 
   if (loading) {
     return (
@@ -193,6 +210,66 @@ export function TableDataView({ tableName }: { tableName: string }) {
           </tbody>
         </table>
       </div>
+      <details className="mt-4 rounded-[var(--radius)] border border-[var(--border)]">
+        <summary className="cursor-pointer px-4 py-3 text-sm font-medium text-[var(--text)]">
+          Incomplete rows ({incompleteRows.length})
+        </summary>
+        <div className="border-t border-[var(--border)] p-3">
+          {incompleteRows.length === 0 ? (
+            <p className="text-sm text-[var(--text-muted)]">
+              No incomplete rows.
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse text-sm">
+                <thead>
+                  <tr className="bg-[var(--bg)]">
+                    <th className="border-b border-[var(--border)] px-3 py-2 text-left font-semibold text-[var(--text)]">
+                      Upload set
+                    </th>
+                    <th className="border-b border-[var(--border)] px-3 py-2 text-left font-semibold text-[var(--text)]">
+                      Row index
+                    </th>
+                    {columns.map((col) => (
+                      <th
+                        key={`incomplete-header-${col}`}
+                        className="border-b border-[var(--border)] px-3 py-2 text-left font-semibold text-[var(--text)]"
+                      >
+                        {col}
+                      </th>
+                    ))}
+                    <th className="border-b border-[var(--border)] px-3 py-2 text-left font-semibold text-[var(--text)]">
+                      Missing
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {incompleteRows.map((row) => (
+                    <tr
+                      key={`${row.uploadSetId}-${row.rowIndex}`}
+                      className="border-b border-[var(--border)] last:border-b-0"
+                    >
+                      <td className="px-3 py-2.5 text-[var(--text)]">{row.uploadSetId}</td>
+                      <td className="px-3 py-2.5 text-[var(--text)]">{row.rowIndex}</td>
+                      {columns.map((col) => (
+                        <td
+                          key={`${row.uploadSetId}-${row.rowIndex}-${col}`}
+                          className="px-3 py-2.5 text-[var(--text)]"
+                        >
+                          {String(row.row[col] ?? "")}
+                        </td>
+                      ))}
+                      <td className="px-3 py-2.5 text-[var(--text-muted)]">
+                        {row.missingColumns.join(", ")}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </details>
       <div ref={loadMoreRef} className="py-4 text-center text-sm text-[var(--text-muted)]">
         {loadingMore && (
           <span className="inline-flex items-center gap-2">
@@ -208,6 +285,7 @@ export function TableDataView({ tableName }: { tableName: string }) {
           onClose={() => setFlushOpen(false)}
           onSuccess={() => {
             setFlushOpen(false);
+            window.dispatchEvent(new CustomEvent("openvts-tables-changed"));
             refresh();
           }}
         />
@@ -218,6 +296,7 @@ export function TableDataView({ tableName }: { tableName: string }) {
           onClose={() => setDeleteOpen(false)}
           onSuccess={() => {
             setDeleteOpen(false);
+            window.dispatchEvent(new CustomEvent("openvts-tables-changed"));
             router.push("/");
           }}
         />
@@ -228,6 +307,7 @@ export function TableDataView({ tableName }: { tableName: string }) {
           onClose={() => setAppendOpen(false)}
           onSuccess={() => {
             setAppendOpen(false);
+            window.dispatchEvent(new CustomEvent("openvts-tables-changed"));
             refresh();
           }}
         />

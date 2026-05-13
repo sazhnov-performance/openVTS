@@ -2,12 +2,37 @@ import {
   getRedis,
   rowsKey,
   metadataKey,
+  pendingSetsKey,
+  pendingMetaKey,
+  pendingRowsKey,
   TABLE_LIST_KEY,
   serialize,
   deserialize,
 } from "./redis";
 
 export type Row = (string | number | boolean | null)[];
+type PendingRowObject = Record<string, string | number | boolean | null>;
+
+export class ValidationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ValidationError";
+  }
+}
+
+export type PartialMergeResult = {
+  uploadSetId: string;
+  rowsMerged: number;
+  rowsPromotedToComplete: number;
+  rowsStillPending: number;
+};
+
+export type IncompleteRowDiagnostic = {
+  uploadSetId: string;
+  rowIndex: number;
+  missingColumns: string[];
+  row: Record<string, string | number | boolean | null>;
+};
 
 export async function createTable(
   tableName: string,
@@ -23,6 +48,7 @@ export async function createTable(
     .hset(meta, "columns", serialize(columns))
     .sadd(TABLE_LIST_KEY, tableName)
     .exec();
+  await clearPendingForTable(tableName);
 }
 
 export async function deleteTable(tableName: string): Promise<void> {
@@ -35,6 +61,7 @@ export async function deleteTable(tableName: string): Promise<void> {
     .del(rows)
     .srem(TABLE_LIST_KEY, tableName)
     .exec();
+  await clearPendingForTable(tableName);
 }
 
 export async function addRow(
@@ -43,6 +70,22 @@ export async function addRow(
 ): Promise<void> {
   const redis = getRedis();
   await redis.rpush(rowsKey(tableName), serialize(values));
+}
+
+export async function addCompleteRow(
+  tableName: string,
+  values: (string | number | boolean | null)[]
+): Promise<void> {
+  const columns = await getColumns(tableName);
+  if (!columns || columns.length === 0) {
+    throw new ValidationError("Table does not exist or has no columns.");
+  }
+  if (values.length !== columns.length) {
+    throw new ValidationError(
+      `Row column count mismatch for table ${tableName}. Expected ${columns.length}, got ${values.length}.`
+    );
+  }
+  await addRow(tableName, values);
 }
 
 export async function getColumns(tableName: string): Promise<string[] | null> {
@@ -78,6 +121,50 @@ export async function getTablesWithRowCounts(): Promise<Record<string, number>> 
   return out;
 }
 
+export async function getIncompleteRowDiagnostics(
+  tableName: string
+): Promise<IncompleteRowDiagnostic[]> {
+  const redis = getRedis();
+  const columns = await getColumns(tableName);
+  if (!columns || columns.length === 0) {
+    return [];
+  }
+
+  const uploadSetIds = await redis.smembers(pendingSetsKey(tableName));
+  const diagnostics: IncompleteRowDiagnostic[] = [];
+  for (const uploadSetId of uploadSetIds) {
+    const pending = await redis.hgetall(pendingRowsKey(tableName, uploadSetId));
+    for (const [rowIndexRaw, rowJson] of Object.entries(pending)) {
+      const parsedRow = deserialize<PendingRowObject>(rowJson) ?? {};
+      const normalized: Record<string, string | number | boolean | null> = {};
+      const missingColumns: string[] = [];
+      for (const column of columns) {
+        const hasValue = Object.prototype.hasOwnProperty.call(parsedRow, column);
+        if (!hasValue) {
+          missingColumns.push(column);
+          normalized[column] = null;
+          continue;
+        }
+        normalized[column] = parsedRow[column] ?? null;
+      }
+      if (missingColumns.length > 0) {
+        diagnostics.push({
+          uploadSetId,
+          rowIndex: Number(rowIndexRaw),
+          missingColumns,
+          row: normalized,
+        });
+      }
+    }
+  }
+  diagnostics.sort((a, b) =>
+    a.uploadSetId === b.uploadSetId
+      ? a.rowIndex - b.rowIndex
+      : a.uploadSetId.localeCompare(b.uploadSetId)
+  );
+  return diagnostics;
+}
+
 export async function getRowsWithPagination(
   tableName: string,
   pageNumber: number,
@@ -109,4 +196,96 @@ export async function cycleRow(tableName: string): Promise<Row | null> {
   const key = rowsKey(tableName);
   const json = await redis.rpoplpush(key, key);
   return deserialize<Row>(json);
+}
+
+export async function mergePartialRows(
+  tableName: string,
+  subsetColumns: string[],
+  rows: (string | number | boolean | null)[][],
+  uploadSetId?: string
+): Promise<PartialMergeResult> {
+  const redis = getRedis();
+  const finalUploadSetId = uploadSetId ?? crypto.randomUUID();
+  const tableColumns = await getColumns(tableName);
+  if (!tableColumns || tableColumns.length === 0) {
+    throw new ValidationError("Table does not exist or has no columns.");
+  }
+  if (subsetColumns.length === 0) {
+    throw new ValidationError("CSV header is empty.");
+  }
+
+  const tableColumnSet = new Set(tableColumns);
+  for (const column of subsetColumns) {
+    if (!tableColumnSet.has(column)) {
+      throw new ValidationError(`Unknown column '${column}' for table ${tableName}.`);
+    }
+  }
+
+  const expectedRows = rows.length;
+  const metaKey = pendingMetaKey(tableName, finalUploadSetId);
+  const pendingKey = pendingRowsKey(tableName, finalUploadSetId);
+  const existingExpected = await redis.hget(metaKey, "expectedRowCount");
+  if (existingExpected != null && Number(existingExpected) !== expectedRows) {
+    throw new ValidationError(
+      `Row count mismatch for uploadSetId ${finalUploadSetId}. Expected ${existingExpected}, got ${expectedRows}.`
+    );
+  }
+
+  await redis
+    .multi()
+    .sadd(pendingSetsKey(tableName), finalUploadSetId)
+    .hset(metaKey, "expectedRowCount", String(expectedRows))
+    .hset(metaKey, "updatedAt", String(Date.now()))
+    .exec();
+
+  let rowsPromotedToComplete = 0;
+  for (let rowIndex = 0; rowIndex < rows.length; rowIndex++) {
+    const field = String(rowIndex);
+    const existingJson = await redis.hget(pendingKey, field);
+    const current = (deserialize<PendingRowObject>(existingJson) ?? {}) as PendingRowObject;
+    const incoming = rows[rowIndex];
+    for (let i = 0; i < subsetColumns.length; i++) {
+      current[subsetColumns[i]] = incoming[i] ?? null;
+    }
+
+    const isComplete = tableColumns.every((col) => Object.prototype.hasOwnProperty.call(current, col));
+    if (isComplete) {
+      const fullRow: Row = tableColumns.map((col) => current[col] ?? null);
+      await redis.multi().rpush(rowsKey(tableName), serialize(fullRow)).hdel(pendingKey, field).exec();
+      rowsPromotedToComplete++;
+      continue;
+    }
+
+    await redis.hset(pendingKey, field, serialize(current));
+  }
+
+  const rowsStillPending = await redis.hlen(pendingKey);
+  if (rowsStillPending === 0) {
+    await redis
+      .multi()
+      .del(metaKey)
+      .del(pendingKey)
+      .srem(pendingSetsKey(tableName), finalUploadSetId)
+      .exec();
+  }
+
+  return {
+    uploadSetId: finalUploadSetId,
+    rowsMerged: rows.length,
+    rowsPromotedToComplete,
+    rowsStillPending,
+  };
+}
+
+async function clearPendingForTable(tableName: string): Promise<void> {
+  const redis = getRedis();
+  const setKey = pendingSetsKey(tableName);
+  const uploadSetIds = await redis.smembers(setKey);
+  const multi = redis.multi();
+  for (const uploadSetId of uploadSetIds) {
+    multi.del(pendingMetaKey(tableName, uploadSetId));
+    multi.del(pendingRowsKey(tableName, uploadSetId));
+  }
+  multi.del(setKey);
+  await multi.exec();
 }
