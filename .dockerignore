@@ -1,0 +1,29 @@
+# Dependencies and build output (use container’s own)
+node_modules
+.next
+npm-debug.log*
+
+# Git and IDE
+.git
+.gitignore
+.idea
+.settings
+*.iml
+
+# Java / other (not needed for Next.js image)
+target
+src
+pom.xml
+*.class
+helm-templates
+
+# Env files (inject at runtime)
+.env
+.env.*
+!.env.example
+
+# Docs and misc
+README.md
+*.md
+Dockerfile
+.dockerignore

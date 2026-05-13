@@ -1,0 +1,85 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #f8fafc;
+  --bg-elevated: #ffffff;
+  --bg-sidebar: #1e293b;
+  --bg-sidebar-hover: #334155;
+  --text: #0f172a;
+  --text-muted: #64748b;
+  --text-inverse: #f1f5f9;
+  --border: #e2e8f0;
+  --border-focus: #3b82f6;
+  --primary: #2563eb;
+  --primary-hover: #1d4ed8;
+  --primary-light: #eff6ff;
+  --success: #059669;
+  --success-bg: #ecfdf5;
+  --danger: #dc2626;
+  --danger-hover: #b91c1c;
+  --danger-bg: #fef2f2;
+  --warning: #d97706;
+  --warning-hover: #b45309;
+  --radius: 0.5rem;
+  --radius-lg: 0.75rem;
+  --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.08), 0 1px 2px -1px rgb(0 0 0 / 0.08);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.08), 0 4px 6px -4px rgb(0 0 0 / 0.08);
+  --shadow-modal: 0 25px 50px -12px rgb(0 0 0 / 0.2);
+}
+
+@layer base {
+  body {
+    color: var(--text);
+    background: var(--bg);
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply rounded-[var(--radius)] font-medium transition-colors;
+    background: var(--primary);
+    color: white;
+  }
+  .btn-primary:hover:not(:disabled) {
+    background: var(--primary-hover);
+  }
+  .btn-secondary {
+    @apply rounded-[var(--radius)] border font-medium transition-colors;
+    border-color: var(--border);
+    background: var(--bg-elevated);
+    color: var(--text);
+  }
+  .btn-secondary:hover {
+    background: #f1f5f9;
+  }
+  .input-base {
+    @apply w-full rounded-[var(--radius)] border px-3 py-2 text-[var(--text)];
+    border-color: var(--border);
+    background: var(--bg-elevated);
+  }
+  .input-base:focus {
+    @apply outline-none ring-2;
+    border-color: var(--border-focus);
+    ring-color: rgb(59 130 246 / 0.25);
+  }
+  .card {
+    @apply rounded-[var(--radius-lg)] bg-[var(--bg-elevated)];
+    box-shadow: var(--shadow);
+  }
+  .modal-backdrop {
+    background: rgb(0 0 0 / 0.5);
+    backdrop-filter: blur(4px);
+  }
+  .modal-panel {
+    @apply rounded-[var(--radius-lg)] bg-[var(--bg-elevated)] p-5;
+    box-shadow: var(--shadow-modal);
+  }
+}
+
+/* Hide default details marker so we can style summary */
+details summary::-webkit-details-marker {
+  display: none;
+}
